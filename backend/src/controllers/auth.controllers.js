@@ -29,9 +29,10 @@ export const signup = async (req, res) => {
         const savedUser = await newUser.save();
 
         // jwt token can be generated here
-        generateToken(savedUser._id, res);
+        const token = generateToken(savedUser._id, res);
 
         return res.status(201).json({
+            token,
             _id: savedUser._id,
             fullName: savedUser.fullName,
             email: savedUser.email,
@@ -66,9 +67,10 @@ export const login = async (req, res) => {
         }
 //jwt token can be generated here
 
-generateToken(user._id, res);
+const token = generateToken(user._id, res);
 
 res.status(200).json({
+    token,
     _id: user._id,
     fullName: user.fullName,
     email: user.email,

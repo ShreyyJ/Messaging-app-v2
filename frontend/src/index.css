@@ -1,0 +1,8 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+  DaisyUI is included as a Tailwind plugin in tailwind.config.js.
+  Do not use an `@plugin` block here — remove it if present.
+*/

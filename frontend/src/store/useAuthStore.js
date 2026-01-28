@@ -130,6 +130,10 @@ export const useAuthStore = create((set, get) => ({
 
     socket.on("connect", () => {
       console.log("Socket connected successfully!");
+      // Start listening for new messages from any user
+      import("./useChatStore.js").then((mod) => {
+        mod.useChatStore.getState().listenForNewMessages();
+      });
     });
 
     socket.on("connect_error", (error) => {

@@ -4,14 +4,16 @@ import toast from "react-hot-toast";
 import { io } from "socket.io-client";
 
 const BASE_URL = import.meta.env.MODE === "development" 
-  ? "http://localhost:5001" 
-  : "https://messaging-app-v2.onrender.com";
+  ? "http://localhost:7000" 
+  : window.location.origin;
 
 export const useAuthStore = create((set, get) => ({
   authUser: null,
   isSigningUp: false,
   isLoggingIn: false,
   isUpdatingProfile: false,
+  isRequestingReset: false,
+  isResettingPassword: false,
   isCheckingAuth: true,
   onlineUsers: [],
   socket: null,
@@ -94,6 +96,40 @@ export const useAuthStore = create((set, get) => ({
       toast.error(msg);
     } finally {
       set({ isUpdatingProfile: false });
+    }
+  },
+
+  requestPasswordReset: async (email) => {
+    set({ isRequestingReset: true });
+    try {
+      const res = await axiosInstance.post("/auth/forgot-password", { email });
+      toast.success(res?.data?.message || "OTP sent if email exists");
+      return true;
+    } catch (error) {
+      const msg = error?.response?.data?.message || error?.message || "Request failed";
+      toast.error(msg);
+      return false;
+    } finally {
+      set({ isRequestingReset: false });
+    }
+  },
+
+  resetPassword: async ({ email, otp, newPassword }) => {
+    set({ isResettingPassword: true });
+    try {
+      const res = await axiosInstance.post("/auth/reset-password", {
+        email,
+        otp,
+        newPassword,
+      });
+      toast.success(res?.data?.message || "Password reset successful");
+      return true;
+    } catch (error) {
+      const msg = error?.response?.data?.message || error?.message || "Reset failed";
+      toast.error(msg);
+      return false;
+    } finally {
+      set({ isResettingPassword: false });
     }
   },
 

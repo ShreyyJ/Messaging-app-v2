@@ -31,11 +31,17 @@ export const useChatStore = create((set, get) => ({
     try {
       const res = await axiosInstance.get(`/messages/${userId}`);
       set({ messages: res.data });
-      // Clear unread count for this user
-      const { unreadMessages } = get();
+      // Clear unread count for this user and update user list
+      const { unreadMessages, users } = get();
       const updated = { ...unreadMessages };
       delete updated[userId];
       set({ unreadMessages: updated });
+
+      // Update user's unread count in the list
+      const updatedUsers = users.map((u) =>
+        u._id === userId ? { ...u, unreadCount: 0 } : u
+      );
+      set({ users: updatedUsers });
     } catch (error) {
       toast.error(error?.response?.data?.message || error.message || "Something went wrong");
     } finally {
@@ -77,9 +83,10 @@ export const useChatStore = create((set, get) => ({
     if (!socket) return;
 
     socket.off("newMessage");
+    socket.off("unreadCountUpdate");
 
     socket.on("newMessage", (newMessage) => {
-      const { selectedUser, users, unreadMessages } = get();
+      const { selectedUser, users } = get();
       const isMessageFromSelectedUser = newMessage.senderId === selectedUser?._id;
 
       // If message is from selected user, add to messages
@@ -88,21 +95,25 @@ export const useChatStore = create((set, get) => ({
           messages: [...get().messages, newMessage],
         });
       } else {
-        // If not from selected user, mark as unread and move to top
-        const updated = { ...unreadMessages };
-        updated[newMessage.senderId] = (updated[newMessage.senderId] || 0) + 1;
-        set({ unreadMessages: updated });
-
-        // Reorder users list: move sender to top
+        // Reorder users list: move sender to top if not already selected
         const reorderedUsers = users.filter((u) => u._id !== newMessage.senderId);
         const senderUser = users.find((u) => u._id === newMessage.senderId);
         if (senderUser) {
-          set({ users: [senderUser, ...reorderedUsers] });
+          set({ users: [{ ...senderUser, unreadCount: (senderUser.unreadCount || 0) + 1 }, ...reorderedUsers] });
         }
 
         // Send browser notification
         get().sendNotification(senderUser?.fullName || "New message", newMessage.text || newMessage.image ? "[Image]" : "");
       }
+    });
+
+    // Listen for unread count updates
+    socket.on("unreadCountUpdate", ({ senderId, unreadCount, lastMessage }) => {
+      const { users } = get();
+      const updatedUsers = users.map((u) =>
+        u._id === senderId ? { ...u, unreadCount, lastMessage } : u
+      );
+      set({ users: updatedUsers });
     });
   },
 
@@ -131,6 +142,7 @@ export const useChatStore = create((set, get) => ({
     const socket = useAuthStore.getState().socket;
     if (socket) {
       socket.off("newMessage");
+      socket.off("unreadCountUpdate");
     }
   },
 

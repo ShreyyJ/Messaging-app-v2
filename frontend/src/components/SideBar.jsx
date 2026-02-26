@@ -67,16 +67,28 @@ const Sidebar = () => {
         {/* User info - only visible on larger screens */}
         <div className="hidden lg:block text-left min-w-0 flex-1">
           <div className="font-medium truncate">{user.fullName}</div>
-          <div className="text-sm text-zinc-400">
-            {onlineUsers.includes(user._id) ? "Online" : "Offline"}
-          </div>
+          {user.lastMessage ? (
+            <div className="text-sm text-zinc-400 truncate">
+              {user.lastMessage.image ? (
+                <span className="italic">🖼️ Photo</span>
+              ) : (
+                user.lastMessage.text?.substring(0, 50) || "No message"
+              )}
+            </div>
+          ) : (
+            <div className="text-sm text-zinc-400">
+              {onlineUsers.includes(user._id) ? "Online" : "Offline"}
+            </div>
+          )}
         </div>
 
-        {/* Unread badge */}
-        {unreadMessages[user._id] && (
-          <span className="ml-auto hidden lg:flex items-center justify-center size-6 bg-red-500 text-white text-xs rounded-full font-medium">
-            {unreadMessages[user._id] > 9 ? "9+" : unreadMessages[user._id]}
-          </span>
+        {/* Unread badge - show red circle with count like WhatsApp */}
+        {user.unreadCount > 0 && (
+          <div className="ml-auto hidden lg:flex items-center justify-center">
+            <span className="flex items-center justify-center w-6 h-6 bg-red-500 text-white text-xs rounded-full font-semibold">
+              {user.unreadCount > 99 ? "99+" : user.unreadCount}
+            </span>
+          </div>
         )}
       </button>
 

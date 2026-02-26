@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: messaging-app-backend
+    ports:
+      - "${BACKEND_PORT:-7000}:5000"
+    environment:
+      PORT: 5000
+      NODE_ENV: ${NODE_ENV:-development}
+      MONGODBURI: ${MONGODBURI:-}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:7001}
+      JWT_SECRET: ${JWT_SECRET:-your-secret-key-change-in-production}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+    networks:
+      - messaging-network
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: messaging-app-frontend
+    ports:
+      - "${FRONTEND_PORT:-7001}:80"
+    depends_on:
+      - backend
+    networks:
+      - messaging-network
+    restart: unless-stopped
+
+networks:
+  messaging-network:
+    driver: bridge

@@ -2,6 +2,7 @@ import { generateToken } from "../../lib/utils.js";
 import User from "../../models/user.model.js";
 import bcrypt from "bcryptjs";
 import cloudinary from "../../lib/cloudinary.js";
+import crypto from "crypto";
 
 export const signup = async (req, res) => {
     const { fullName, email, password } = req.body;
@@ -133,5 +134,73 @@ export const checkAuth = (req, res) => {
     } catch (error) {
       console.log("error in checkAuth comtroller :",error.message);
       res.status(500).json({message:"Internal Server Error"});
+    }
+};
+
+export const requestPasswordReset = async (req, res) => {
+    const { email } = req.body;
+    try {
+        if (!email) {
+            return res.status(400).json({ message: "Email is required" });
+        }
+
+        const user = await User.findOne({ email });
+        if (!user) {
+            // Do not reveal if the user exists
+            return res.status(200).json({ message: "If the email exists, an OTP was sent" });
+        }
+
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        const otpHash = crypto.createHash("sha256").update(otp).digest("hex");
+        const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
+
+        user.resetOtpHash = otpHash;
+        user.resetOtpExpiresAt = expiresAt;
+        await user.save();
+
+        // Email sending is deferred; log OTP for now
+        console.log(`Password reset OTP for ${email}: ${otp}`);
+
+        return res.status(200).json({ message: "If the email exists, an OTP was sent" });
+    } catch (error) {
+        console.log("Error in requestPasswordReset", error.message);
+        return res.status(500).json({ message: "Server error" });
+    }
+};
+
+export const resetPasswordWithOtp = async (req, res) => {
+    const { email, otp, newPassword } = req.body;
+    try {
+        if (!email || !otp || !newPassword) {
+            return res.status(400).json({ message: "Email, OTP, and new password are required" });
+        }
+        if (newPassword.length < 6) {
+            return res.status(400).json({ message: "Password must be at least 6 characters" });
+        }
+
+        const user = await User.findOne({ email }).select("+password");
+        if (!user || !user.resetOtpHash || !user.resetOtpExpiresAt) {
+            return res.status(400).json({ message: "Invalid or expired OTP" });
+        }
+
+        if (user.resetOtpExpiresAt.getTime() < Date.now()) {
+            return res.status(400).json({ message: "Invalid or expired OTP" });
+        }
+
+        const otpHash = crypto.createHash("sha256").update(otp).digest("hex");
+        if (otpHash !== user.resetOtpHash) {
+            return res.status(400).json({ message: "Invalid or expired OTP" });
+        }
+
+        const salt = await bcrypt.genSalt(10);
+        user.password = await bcrypt.hash(newPassword, salt);
+        user.resetOtpHash = "";
+        user.resetOtpExpiresAt = null;
+        await user.save();
+
+        return res.status(200).json({ message: "Password reset successful" });
+    } catch (error) {
+        console.log("Error in resetPasswordWithOtp", error.message);
+        return res.status(500).json({ message: "Server error" });
     }
 };
